@@ -111,7 +111,6 @@ int main(int argc, const char* argv[]) {
   fclose(fadd);
   
   printf("ALL logical ---> physical assertions PASSED!\n");
-  printf("Total addresses: %i\n", address_count);
   printf("Page Fault Rate: %f\n", page_fault_rate);
   printf("Hit rate: %f\n", hit_rate);
   printf("\n\t\t...done.\n");
