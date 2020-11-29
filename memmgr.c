@@ -45,10 +45,13 @@ int page_table[PAGE_SIZE];
 int hit = 0;
 int tlb_size = 0;
 
+int i;
+int queue_position;
+
 int memory_full = 0;
 int memory[FRAME_SIZE][FRAME_SIZE];
 
-
+//----------------------------------------------------------------------
 int main(int argc, const char* argv[]) {
   FILE* fadd = fopen("addresses.txt", "r");    // open file addresses.txt  (contains the logical addresses)
   if (fadd == NULL) { fprintf(stderr, "Could not open file: 'addresses.txt'\n");  exit(FILE_ERROR);  }
@@ -59,7 +62,6 @@ int main(int argc, const char* argv[]) {
   for(int i=0; i<FRAME_SIZE; i++){
     page_table[i] = -1;
   }
-
 
   while (fscanf(fadd, "%d", &logic_add) != -1) {
 
@@ -72,7 +74,7 @@ int main(int argc, const char* argv[]) {
     page   = getpage(  logic_add);
     offset = getoffset(logic_add);
 
-    for(int i = 0; i<tlb_size; i++){
+    for(i = 0; i<tlb_size; i++){
       if(tlb[i][0] == page){
         hit = 1;
         physical_add = tlb[i][1]*FRAME_SIZE + offset;
@@ -92,12 +94,10 @@ int main(int argc, const char* argv[]) {
         tlb[tlb_size][1] = page_table[page];
         tlb_size++;
       } else {
-        for(int i = 0; i<15; i++){
-          tlb[i][0] = tlb[i+1][0];
-          tlb[i][1] = tlb[i+1][1];
-        }
-        tlb[15][0] = page;
-        tlb[15][1] = page_table[page];
+        tlb[queue_position][0]=page;
+			  tlb[queue_position][1]=i;
+			  queue_position++;
+			  queue_position=queue_position%15;	
       }
     }    
     printf("logical: %5u (page: %3u, offset: %3u) ---> physical: %5u -- passed\n", logic_add, page, offset, physical_add);
