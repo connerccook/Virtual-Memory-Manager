@@ -17,23 +17,20 @@
 #define ARGC_ERROR 1
 #define FILE_ERROR 2
 #define BUFLEN 256
-#define FRAME_SIZE  256
+#define FRAME_SIZE  256/2
 #define TLB_SIZE 16
 #define PAGE_SIZE 256
 
 
 
 //-------------------------------------------------------------------
-unsigned getpage(unsigned x) { return (0xff00 & x) >> 8; }
+unsigned getpage(unsigned x);
 
-unsigned getoffset(unsigned x) { return (0xff & x); }
+unsigned getoffset(unsigned x);
 
-void getpage_offset(unsigned x) {
-  unsigned  page   = getpage(x);
-  unsigned  offset = getoffset(x);
-  printf("x is: %u, page: %u, offset: %u, address: %u, paddress: %u\n", x, page, offset,
-         (page << 8) | getoffset(x), page * 256 + offset);
-}
+void getpage_offset(unsigned x);
+
+void Fault(int page);
 //--------------------------------------------------------------------
 char buf[BUFLEN];
 unsigned   page, offset, physical_add, frame = 0;
@@ -44,25 +41,13 @@ unsigned   virt_add, phys_add, value;  // read from file correct.txt
 
 int tlb[TLB_SIZE][2];
 int page_table[PAGE_SIZE];
+
 int hit = 0;
 int tlb_size = 0;
 
 int memory_full = 0;
-int memory[FRAME_SIZE][PAGE_SIZE];
+int memory[FRAME_SIZE][FRAME_SIZE];
 
-void Fault(int page){
-  FILE* BACKING_STORE = fopen("BACKING_STORE.bin","rb");
-  if (BACKING_STORE == NULL) { fprintf(stderr, "Could not open file: 'correct.txt'\n");  exit(FILE_ERROR);  }
-
-  fread(buf,sizeof(buf),1,BACKING_STORE);
-
-  for(int i=0; i<FRAME_SIZE; i++){
-    memory[memory_full][i] = buf[i];
-  }
-  page_table[page] = memory_full;
-  memory_full++;
-  fclose(BACKING_STORE);
-}
 
 int main(int argc, const char* argv[]) {
   FILE* fadd = fopen("addresses.txt", "r");    // open file addresses.txt  (contains the logical addresses)
@@ -76,7 +61,7 @@ int main(int argc, const char* argv[]) {
   }
 
 
-  while (fscanf(fadd, "%d", &logic_add) == 1) {
+  while (fscanf(fadd, "%d", &logic_add) != -1) {
 
     address_count++;
 
@@ -126,8 +111,34 @@ int main(int argc, const char* argv[]) {
   fclose(fadd);
   
   printf("ALL logical ---> physical assertions PASSED!\n");
+  printf("Total addresses: %i\n", address_count);
   printf("Page Fault Rate: %f\n", page_fault_rate);
   printf("Hit rate: %f\n", hit_rate);
   printf("\n\t\t...done.\n");
   return 0;
+}
+
+//-------------------------------------------------------------------
+unsigned getpage(unsigned x) { return (0xff00 & x) >> 8; }
+
+unsigned getoffset(unsigned x) { return (0xff & x); }
+
+void getpage_offset(unsigned x) {
+  unsigned  page   = getpage(x);
+  unsigned  offset = getoffset(x);
+  printf("x is: %u, page: %u, offset: %u, address: %u, paddress: %u\n", x, page, offset,
+         (page << 8) | getoffset(x), page * 256 + offset);
+}
+void Fault(int page){
+  FILE* BACKING_STORE = fopen("BACKING_STORE.bin","rb");
+  if (BACKING_STORE == NULL) { fprintf(stderr, "Could not open file: 'correct.txt'\n");  exit(FILE_ERROR);  }
+
+  fread(buf,sizeof(buf),1,BACKING_STORE);
+
+  for(int i=0; i<FRAME_SIZE; i++){
+    memory[memory_full][i] = buf[i];
+  }
+  page_table[page] = memory_full;
+  memory_full++;
+  fclose(BACKING_STORE);
 }
