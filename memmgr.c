@@ -14,16 +14,19 @@
 #include <string.h>
 #include <assert.h>
 
+//-------------------------------------------------------------------
+
 #define ARGC_ERROR 1
 #define FILE_ERROR 2
 #define BUFLEN 256
-#define FRAME_SIZE  256/2
+#define FRAME_SIZE  128
 #define TLB_SIZE 16
 #define PAGE_SIZE 256
 
 
 
 //-------------------------------------------------------------------
+//Initlize all functions
 unsigned getpage(unsigned x);
 
 unsigned getoffset(unsigned x);
@@ -32,24 +35,21 @@ void getpage_offset(unsigned x);
 
 void Fault(int page);
 //--------------------------------------------------------------------
+//Initilize all variables
 char buf[BUFLEN];
-unsigned   page, offset, physical_add, frame = 0;
-unsigned total_hits, total_page_fault, address_count = 0;
-float hit_rate, page_fault_rate = 0;
+unsigned   page, offset, physical_add, frame = 0; 
+unsigned hit_counter, page_fault_counter, address_counter = 0; //all counters
+float hit_rate, page_fault_rate = 0; //rates
 unsigned   logic_add;                  // read from file address.txt
 unsigned   virt_add, phys_add, value;  // read from file correct.txt
-
-int tlb[TLB_SIZE][2];
-int page_table[PAGE_SIZE];
-
-int hit = 0;
-int tlb_size = 0;
-
-int i;
-int queue_position;
-
 int memory_full = 0;
 int memory[FRAME_SIZE][FRAME_SIZE];
+int tlb[TLB_SIZE][2];
+int page_table[PAGE_SIZE];
+int hit = 0;
+int tlb_size = 0;
+int Index;
+int queue_position; //FIFO
 
 //----------------------------------------------------------------------
 int main(int argc, const char* argv[]) {
@@ -58,14 +58,13 @@ int main(int argc, const char* argv[]) {
 
   FILE* fcorr = fopen("correct.txt", "r");     // contains the logical and physical address, and its value
   if (fcorr == NULL) { fprintf(stderr, "Could not open file: 'correct.txt'\n");  exit(FILE_ERROR);  }
-
   for(int i=0; i<FRAME_SIZE; i++){
     page_table[i] = -1;
   }
 
   while (fscanf(fadd, "%d", &logic_add) != -1) {
 
-    address_count++;
+    address_counter++;
 
     fscanf(fcorr, "%s %s %d %s %s %d %s %d", buf, buf, &virt_add,
            buf, buf, &phys_add, buf, &value);  // read from file correct.txt
@@ -74,45 +73,45 @@ int main(int argc, const char* argv[]) {
     page   = getpage(  logic_add);
     offset = getoffset(logic_add);
 
-    for(i = 0; i<tlb_size; i++){
-      if(tlb[i][0] == page){
+    for(Index = 0; Index<tlb_size; Index++){
+      if(tlb[Index][0] == page){
         hit = 1;
-        physical_add = tlb[i][1]*FRAME_SIZE + offset;
-        total_hits++;
+        physical_add = tlb[Index][1]*FRAME_SIZE + offset;
+        hit_counter++;
         break;
       }
     }
 
-    if(hit != 1) {
+    if(hit == 0) {
       if(page_table[page] == -1) {
         Fault(page);
-        total_page_fault++;
+        page_fault_counter++;
       }
       physical_add = page_table[page]*PAGE_SIZE + offset;
-      if(tlb_size != 16){
+      if(!(tlb_size == 16)){
         tlb[tlb_size][0] = page;
         tlb[tlb_size][1] = page_table[page];
         tlb_size++;
       } else {
         tlb[queue_position][0]=page;
-			  tlb[queue_position][1]=i;
+			  tlb[queue_position][1]=Index;
 			  queue_position++;
 			  queue_position=queue_position%15;	
       }
     }    
     printf("logical: %5u (page: %3u, offset: %3u) ---> physical: %5u -- passed\n", logic_add, page, offset, physical_add);
-    if (address_count % 5 == 0) { printf("\n"); }
+    if (address_counter % 5 == 0) { printf("\n"); }
   }
 
-  page_fault_rate = total_page_fault*1.0f / address_count;
-  hit_rate = total_hits*1.0f / address_count;
+  page_fault_rate = (page_fault_counter*1.0f / address_counter);
+  hit_rate = (hit_counter*1.0f / address_counter);
 
   fclose(fcorr);
   fclose(fadd);
   
   printf("ALL logical ---> physical assertions PASSED!\n");
-  printf("Page Fault Rate: %f\n", page_fault_rate);
   printf("Hit rate: %f\n", hit_rate);
+  printf("Page Fault Rate: %f\n", page_fault_rate);
   printf("\n\t\t...done.\n");
   return 0;
 }
