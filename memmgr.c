@@ -33,7 +33,6 @@ unsigned getoffset(unsigned x);
 
 void getpage_offset(unsigned x);
 
-void Fault(int page);
 //--------------------------------------------------------------------
 //Initilize all variables
 char buf[BUFLEN];
@@ -43,7 +42,7 @@ float hit_rate, page_fault_rate = 0; //rates
 unsigned   logic_add;                  // read from file address.txt
 unsigned   virt_add, phys_add, value;  // read from file correct.txt
 int memory_full = 0;
-int memory[FRAME_SIZE][FRAME_SIZE];
+int memory[FRAME_SIZE][PAGE_SIZE];
 int tlb[TLB_SIZE][2];
 int page_table[PAGE_SIZE];
 int hit = 0;
@@ -58,6 +57,10 @@ int main(int argc, const char* argv[]) {
 
   FILE* fcorr = fopen("correct.txt", "r");     // contains the logical and physical address, and its value
   if (fcorr == NULL) { fprintf(stderr, "Could not open file: 'correct.txt'\n");  exit(FILE_ERROR);  }
+
+  FILE* BACKING_STORE = fopen("BACKING_STORE.bin","rb");
+  if (BACKING_STORE == NULL) { fprintf(stderr, "Could not open file: 'correct.txt'\n");  exit(FILE_ERROR);  }
+
   for(int i=0; i<FRAME_SIZE; i++){
     page_table[i] = -1;
   }
@@ -84,7 +87,12 @@ int main(int argc, const char* argv[]) {
 
     if(hit == 0) {
       if(page_table[page] == -1) {
-        Fault(page);
+        fread(buf,sizeof(buf),1,BACKING_STORE);
+        for(int i=0; i<FRAME_SIZE; i++){
+          memory[memory_full][i] = buf[i];
+        }
+        page_table[page] = memory_full;
+        memory_full++;
         page_fault_counter++;
       }
       physical_add = page_table[page]*PAGE_SIZE + offset;
@@ -108,6 +116,7 @@ int main(int argc, const char* argv[]) {
 
   fclose(fcorr);
   fclose(fadd);
+  fclose(BACKING_STORE);
   
   printf("ALL logical ---> physical assertions PASSED!\n");
   printf("Hit rate: %f\n", hit_rate);
@@ -126,17 +135,4 @@ void getpage_offset(unsigned x) {
   unsigned  offset = getoffset(x);
   printf("x is: %u, page: %u, offset: %u, address: %u, paddress: %u\n", x, page, offset,
          (page << 8) | getoffset(x), page * 256 + offset);
-}
-void Fault(int page){
-  FILE* BACKING_STORE = fopen("BACKING_STORE.bin","rb");
-  if (BACKING_STORE == NULL) { fprintf(stderr, "Could not open file: 'correct.txt'\n");  exit(FILE_ERROR);  }
-
-  fread(buf,sizeof(buf),1,BACKING_STORE);
-
-  for(int i=0; i<FRAME_SIZE; i++){
-    memory[memory_full][i] = buf[i];
-  }
-  page_table[page] = memory_full;
-  memory_full++;
-  fclose(BACKING_STORE);
 }
